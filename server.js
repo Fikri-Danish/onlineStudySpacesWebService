@@ -72,7 +72,7 @@ app.post('/addspace', requireAuth, requireAdmin, async (req, res) => {
     try {
         let connection = await mysql.createConnection(dbConfig);
         await connection.execute(
-            'INSERT INTO study_spaces (space_name, location, capacity, zone_type, is_available, booked_by, booking_time, space_image) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
+            'INSERT INTO study_spaces (space_name, location, capacity, zone_type, is_available, booked_by, booking_time, space_image) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
             [space_name, location, capacity, zone_type, is_available ?? true, booked_by ?? null, booking_time ?? null, space_image ?? null]
         );
         await connection.end();
@@ -84,12 +84,24 @@ app.post('/addspace', requireAuth, requireAdmin, async (req, res) => {
 });
 
 // Edit (update) a study space - ADMIN ONLY
-app.put('/editspace/:id', requireAuth, requireAdmin, async (req, res) => {
+app.put('/editspace/:id', requireAuth, async (req, res) => {
     const { id } = req.params;
     const { space_name, location, capacity, zone_type, is_available, booked_by, booking_time, space_image } = req.body;
 
     if (space_name === undefined && location === undefined && capacity === undefined && zone_type === undefined && is_available === undefined && booked_by === undefined && booking_time === undefined && space_image === undefined) {
         return res.status(400).json({ message: 'Nothing to update' });
+    }
+
+    if (req.user.role === "student") {
+        const allowed = ["is_available", "booked_by", "booking_time"];
+        const sent = Object.keys(req.body);
+
+        const invalid = sent.some((key) => !allowed.includes(key));
+        if (invalid) {
+            return res.status(403).json({
+                message: "Students can only book or unbook spaces"
+            });
+        }
     }
 
     try {
@@ -162,16 +174,16 @@ app.post("/login", async (req, res) => {
         }
 
         const token = jwt.sign(
-            { 
-                userId: user.userId, 
+            {
+                userId: user.userId,
                 username: user.username,
-                role: user.role 
+                role: user.role
             },
             JWT_SECRET,
             { expiresIn: "1h" }
         );
 
-        res.json({ 
+        res.json({
             token,
             user: {
                 userId: user.userId,

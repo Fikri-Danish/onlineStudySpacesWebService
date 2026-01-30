@@ -16,43 +16,43 @@ const dbConfig = {
     queueLimit: 0,
 };
 
-const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
-
 // intialize Express app
 const app = express();
 
 const cors = require("cors");
 
 const allowedOrigins = [
-  "http://localhost:3000",
-  "https://onlinestudyspaceswebservice.onrender.com/allspaces",
+    "http://localhost:3000",
+    "https://onlinestudyspaceswebservice.onrender.com",
 ];
 
 app.use(
-  cors({
-    origin: function (origin, callback) {
-      // allow requests with no origin (Postman/server-to-server)
-      if (!origin) return callback(null, true);
+    cors({
+        origin: function (origin, callback) {
+            // allow requests with no origin (Postman/server-to-server)
+            if (!origin) return callback(null, true);
 
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-      return callback(new Error("Not allowed by CORS"));
-    },
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: false,
-  })
+            if (allowedOrigins.includes(origin)) {
+                return callback(null, true);
+            }
+            return callback(new Error("Not allowed by CORS"));
+        },
+        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allowedHeaders: ["Content-Type", "Authorization"],
+        credentials: false,
+    })
 );
 
 // helps app to read JSON
 app.use(express.json());
 
+const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
+
 app.listen(port, () => {
     console.log('Server running on port', port);
 });
 
-// Login endpoint
+// Login endpoint - uses database users table
 app.post("/login", async (req, res) => {
     const { username, password } = req.body;
 
@@ -69,14 +69,13 @@ app.post("/login", async (req, res) => {
         await connection.end();
 
         if (rows.length === 0) {
-            return res.status(401).json({ error: "Invalid credentials" });
+            return res.status(401).json({ error: "Invalid" });
         }
 
         const user = rows[0];
 
-        // Plain text password comparison
         if (password !== user.password) {
-            return res.status(401).json({ error: "Invalid credentials" });
+            return res.status(401).json({ error: "Invalid" });
         }
 
         const token = jwt.sign(
@@ -89,22 +88,13 @@ app.post("/login", async (req, res) => {
             { expiresIn: "1h" }
         );
 
-        res.json({ 
-            token,
-            user: {
-                userId: user.userId,
-                username: user.username,
-                email: user.email,
-                role: user.role
-            }
-        });
+        res.json({ token });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: "Server error during login" });
     }
 });
 
-// Middleware to require authentication
 function requireAuth(req, res, next) {
     const header = req.headers.authorization;
     if (!header) return res.status(401).json({ error: "Missing Authorization header" });
@@ -123,23 +113,7 @@ function requireAuth(req, res, next) {
     }
 }
 
-// Middleware to require admin role
-function requireAdmin(req, res, next) {
-    if (req.user.role !== 'admin') {
-        return res.status(403).json({ error: "Access denied. Admin role required." });
-    }
-    next();
-}
-
-// Middleware to require customer or admin role
-function requireCustomerOrAdmin(req, res, next) {
-    if (req.user.role !== 'customer' && req.user.role !== 'admin') {
-        return res.status(403).json({ error: "Access denied. Customer or Admin role required." });
-    }
-    next();
-}
-
-// Get all study spaces (public or require auth based on your needs)
+// Get all study spaces
 app.get('/allspaces', async (req, res) => {
     try {
         let connection = await mysql.createConnection(dbConfig);
@@ -152,29 +126,29 @@ app.get('/allspaces', async (req, res) => {
     }
 });
 
-// Create a new study space - Admin only
-app.post('/addspace', requireAuth, requireAdmin, async (req, res) => {
-    const { space_name, location, capacity, zone_type, is_available, booked_by, booking_time } = req.body;
+// Create a new study space - NO RESTRICTION
+app.post('/addspace', async (req, res) => {
+    const { space_name, location, capacity, zone_type, is_available, booked_by, booking_time, space_image } = req.body;
     try {
         let connection = await mysql.createConnection(dbConfig);
         await connection.execute(
-            'INSERT INTO study_spaces (space_name, location, capacity, zone_type, is_available, booked_by, booking_time) VALUES (?, ?, ?, ?, ?, ?, ?)', 
-            [space_name, location, capacity, zone_type, is_available ?? true, booked_by ?? null, booking_time ?? null]
+            'INSERT INTO study_spaces (space_name, location, capacity, zone_type, is_available, booked_by, booking_time, space_image) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
+            [space_name, location, capacity, zone_type, is_available ?? true, booked_by ?? null, booking_time ?? null, space_image]
         );
         await connection.end();
-        res.status(201).json({ message: 'Study space '+space_name+' added successfully' });
+        res.status(201).json({ message: 'Study space ' + space_name + ' added successfully' });
     } catch (err) {
         console.error(err);
-        res.status(500).json({ message: 'Server error - could not add study space '+space_name});
+        res.status(500).json({ message: 'Server error - could not add study space ' + space_name });
     }
 });
 
-// Edit (update) a study space - Admin only
-app.put('/editspace/:id', requireAuth, requireAdmin, async (req, res) => {
+// Edit (update) a study space
+app.put('/editspace/:id', async (req, res) => {
     const { id } = req.params;
-    const { space_name, location, capacity, zone_type, is_available, booked_by, booking_time } = req.body;
+    const { space_name, location, capacity, zone_type, is_available, booked_by, booking_time, space_image } = req.body;
 
-    if (space_name === undefined && location === undefined && capacity === undefined && zone_type === undefined && is_available === undefined && booked_by === undefined && booking_time === undefined) {
+    if (space_name === undefined && location === undefined && capacity === undefined && zone_type === undefined && is_available === undefined && booked_by === undefined && booking_time === undefined && space_image === undefined) {
         return res.status(400).json({ message: 'Nothing to update' });
     }
 
@@ -188,9 +162,10 @@ app.put('/editspace/:id', requireAuth, requireAdmin, async (req, res) => {
                  zone_type = COALESCE(?, zone_type),
                  is_available = COALESCE(?, is_available),
                  booked_by = ?,
-                 booking_time = ?
+                 booking_time = ?,
+                 space_image = COALESCE(?, space_image)
              WHERE space_id = ?`,
-            [space_name ?? null, location ?? null, capacity ?? null, zone_type ?? null, is_available ?? null, booked_by ?? null, booking_time ?? null, id]
+            [space_name ?? null, location ?? null, capacity ?? null, zone_type ?? null, is_available ?? null, booked_by ?? null, booking_time ?? null, space_image ?? null, id]
         );
         await connection.end();
 
@@ -205,8 +180,8 @@ app.put('/editspace/:id', requireAuth, requireAdmin, async (req, res) => {
     }
 });
 
-// Delete a study space - Admin only
-app.delete('/deletespace/:id', requireAuth, requireAdmin, async (req, res) => {
+// Delete a study space
+app.delete('/deletespace/:id', async (req, res) => {
     const { id } = req.params;
     try {
         let connection = await mysql.createConnection(dbConfig);

@@ -59,7 +59,6 @@ app.get('/allspaces', async (req, res) => {
     try {
         let connection = await mysql.createConnection(dbConfig);
         const [rows] = await connection.execute('SELECT * FROM defaultdb.study_spaces');
-        await connection.end();
         res.json(rows);
     } catch (err) {
         console.error(err);
@@ -67,7 +66,7 @@ app.get('/allspaces', async (req, res) => {
     }
 });
 
-// Create a new study space - NO AUTH
+// Create a new study space
 app.post('/addspace', async (req, res) => {
     const { space_name, location, capacity, zone_type, is_available, booked_by, booking_time, space_image } = req.body;
     try {
@@ -76,11 +75,10 @@ app.post('/addspace', async (req, res) => {
             'INSERT INTO study_spaces (space_name, location, capacity, zone_type, is_available, booked_by, booking_time, space_image) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
             [space_name, location, capacity, zone_type, is_available ?? true, booked_by ?? null, booking_time ?? null, space_image ?? null]
         );
-        await connection.end();
-        res.status(201).json({ message: 'Study space '+space_name+' added successfully' });
+        res.status(201).json({ message: 'Study space ' + space_name + ' added successfully' });
     } catch (err) {
         console.error(err);
-        res.status(500).json({ message: 'Server error - could not add study space '+space_name});
+        res.status(500).json({ message: 'Server error - could not add study space ' + space_name });
     }
 });
 
@@ -108,7 +106,6 @@ app.put('/editspace/:id', async (req, res) => {
              WHERE space_id = ?`,
             [space_name ?? null, location ?? null, capacity ?? null, zone_type ?? null, is_available ?? null, booked_by ?? null, booking_time ?? null, space_image ?? null, id]
         );
-        await connection.end();
 
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: 'Study space not found' });
@@ -121,13 +118,11 @@ app.put('/editspace/:id', async (req, res) => {
     }
 });
 
-// Delete a study space
 app.delete('/deletespace/:id', async (req, res) => {
     const { id } = req.params;
     try {
         let connection = await mysql.createConnection(dbConfig);
         const [rows] = await connection.execute('DELETE FROM defaultdb.study_spaces WHERE space_id = ?', [id]);
-        await connection.end();
         res.json(rows);
     } catch (err) {
         console.error(err);
@@ -135,7 +130,6 @@ app.delete('/deletespace/:id', async (req, res) => {
     }
 });
 
-// Login endpoint
 app.post("/login", (req, res) => {
     const { username, password } = req.body;
 
@@ -152,7 +146,6 @@ app.post("/login", (req, res) => {
     res.json({ token });
 });
 
-// Auth middleware
 function requireAuth(req, res, next) {
     const header = req.headers.authorization;
     if (!header) return res.status(401).json({ error: "Missing Authorization header" });

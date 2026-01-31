@@ -22,7 +22,7 @@ const cors = require("cors");
 
 const allowedOrigins = [
     "http://localhost:3000",
-    "https://onlinecarswebservice.onrender.com/allcars",
+    "https://onlinestudyspaceswebservice.onrender.com/allspaces",
 ];
 
 function toMySQLDateTime(value) {

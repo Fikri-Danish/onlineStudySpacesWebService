@@ -22,7 +22,7 @@ const cors = require("cors");
 
 const allowedOrigins = [
     "http://localhost:3000",
-    "https://onlinestudyspaceswebservice.onrender.com/allspaces",
+    "https://c219-ca2.vercel.app",
 ];
 
 function toMySQLDateTime(value) {
